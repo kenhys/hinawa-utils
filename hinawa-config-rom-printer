@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+
+import sys, gi, pprint
+
+gi.require_version('Hinawa', '2.0')
+from gi.repository import Hinawa
+
+from ta1394.config_rom import Ta1394ConfigRom
+
+if len(sys.argv) == 1:
+    print('At least one argument is required for firewire character device.')
+    sys.exit()
+path = sys.argv[1]
+
+vendor_entry_defs = {
+    0x08: ('manufacturer', 0b0001), # Echo Fireworks.
+};
+
+unit = Hinawa.FwUnit()
+unit.open(path)
+
+rom = unit.get_config_rom()
+parser = Ta1394ConfigRom(None, vendor_entry_defs)
+info = parser.parse(rom)
+
+pp = pprint.PrettyPrinter(indent=4, compact=True)
+
+pp.pprint(info)
