@@ -6,6 +6,8 @@ from motu.motu_protocol_v1 import MotuProtocolV1
 from motu.motu_protocol_v2 import MotuProtocolV2
 from motu.motu_protocol_v3 import MotuProtocolV3
 
+from ieee1394.config_rom import Ieee1394ConfigRom
+
 __all__ = ['MotuUnit']
 
 class MotuUnit(Hinawa.SndMotu):
@@ -24,11 +26,18 @@ class MotuUnit(Hinawa.SndMotu):
             raise ValueError('The character device is not for Motu unit.')
         self.listen()
 
-        # TODO: apply more intelligent way and pick up more information.
-        model_id = self.get_config_rom()[13]
-        if model_id >> 24 == 17:
+        rom_parser = Ieee1394ConfigRom(None, None)
+        info = rom_parser.parse(self.get_config_rom())
+        model_id = -1
+        for root_entry in info['root-directory']:
+            if root_entry[0] != 'unit' or root_entry[1] != 'directory':
+                continue
+            for unit_entry in root_entry[2]:
+                if unit_entry[0] == 'model' and unit_entry[1] == 'immediate':
+                    model_id = unit_entry[2]
+        if model_id < 0:
             raise OSError('Unknown model for Motu unit.')
-        model_id &= 0x00ffffff
+
         if model_id in self.SUPPORTED_MODELS:
             self.name = self.SUPPORTED_MODELS[model_id][0]
             self._protocol = self.SUPPORTED_MODELS[model_id][1](self, False)

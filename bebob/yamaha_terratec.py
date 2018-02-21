@@ -1,5 +1,6 @@
 from bebob.bebob_unit import BebobUnit
 
+from ta1394.config_rom import Ta1394ConfigRom
 from ta1394.general import AvcGeneral
 from ta1394.general import AvcConnection
 from ta1394.audio import AvcAudio
@@ -17,17 +18,20 @@ class YamahaTerratec(BebobUnit):
 
     def __init__(self, path):
         super().__init__(path)
-        for quad in self.get_config_rom():
-            # Vendor ID
-            if quad >> 24 == 0x03:
-                vendor_id = quad & 0x00ffffff
-                continue
-            # Model ID
-            if quad >> 24 == 0x17:
-                model_id = quad & 0x00ffffff
-                break
-        else:
-            raise ValueError('Invalid argument for Yamaha/Terratec unit')
+
+        # Detect vendor/model IDs
+        rom_parser = Ta1394ConfigRom(None, None)
+        info = rom_parser.parse(self.get_config_rom())
+        vendor_id = 0
+        model_id = 0
+        for root_entry in info['root-directory']:
+            if root_entry[0] == 'vendor' and root_entry[1] == 'immediate':
+                vendor_id = root_entry[2]
+            elif root_entry[0] == 'unit' and root_entry[1] == 'directory':
+                for unit_entry in root_entry[2]:
+                    if unit_entry[0] == 'model' and unit_entry[1] == 'immediate':
+                        model_id = unit_entry[2]
+
         # Check vendor ID for Yamaha/Terratec OUI
         if vendor_id != 0x00a0de and vendor_id != 0x000aac:
             raise ValueError('Invalid argument for Yamaha/Terratec unit')
